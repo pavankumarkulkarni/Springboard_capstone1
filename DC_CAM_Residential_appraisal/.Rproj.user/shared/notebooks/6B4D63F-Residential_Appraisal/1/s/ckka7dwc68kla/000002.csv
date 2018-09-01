@@ -1,0 +1,8 @@
+"0","residential_clean_df <- residential_clean_df %>%"
+"0","  mutate(structure_coding = case_when(STRUCT == 7 ~ 'str_row_inside',"
+"0","                                 STRUCT == 1 ~ 'str_single',"
+"0","                                 STRUCT == 8 ~ 'str_semi_detached',"
+"0","                                 STRUCT == 6 ~ 'str_row_end',"
+"0","                                 STRUCT == 2 ~ 'str_multi',"
+"0","                                 TRUE ~ 'stl_other')) %>%"
+"0","  mutate(structure_coding = as.factor(structure_coding)) "

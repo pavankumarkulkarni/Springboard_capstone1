@@ -1,0 +1,211 @@
+"0","rf_model <- train(PRICE~., data = train_residence_df, method = 'parRF')"
+"1","2 packages are needed for this model and are not installed. (randomForest, import). Would you like to try to install them now?"
+"1","
+"
+"1","1: yes"
+"1","
+"
+"1","2: no"
+"1","
+"
+"1","
+"
+"1","Enter an item from the menu, or 0 to exit
+"
+"0","yes"
+"2","trying URL 'http://cran.rstudio.com/src/contrib/randomForest_4.6-14.tar.gz'
+"
+"2","Content type 'application/x-gzip'"
+"2"," length 80074 bytes (78 KB)
+"
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","
+"
+"2","downloaded 78 KB
+
+"
+"2","trying URL 'http://cran.rstudio.com/src/contrib/import_1.1.0.tar.gz'
+"
+"2","Content type 'application/x-gzip'"
+"2"," length 231456 bytes (226 KB)
+"
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","="
+"2","
+"
+"2","downloaded 226 KB
+
+"
+"2","* installing *source* package ‘randomForest’ ...
+"
+"2","** package ‘randomForest’ successfully unpacked and MD5 sums checked
+"
+"2","** libs
+"
+"1","x86_64-conda_cos6-linux-gnu-cc -I/home/pavan/anaconda3/envs/rstudio/lib/R/include -DNDEBUG   -DNDEBUG -D_FORTIFY_SOURCE=2 -O2 -I/home/pavan/anaconda3/envs/rstudio/include   -fpic  -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -pipe -I/home/pavan/anaconda3/envs/rstudio/include -fdebug-prefix-map==/usr/local/src/conda/- -fdebug-prefix-map==/usr/local/src/conda-prefix  -c classTree.c -o classTree.o
+"
+"1","x86_64-conda_cos6-linux-gnu-cc -I/home/pavan/anaconda3/envs/rstudio/lib/R/include -DNDEBUG   -DNDEBUG -D_FORTIFY_SOURCE=2 -O2 -I/home/pavan/anaconda3/envs/rstudio/include   -fpic  -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -pipe -I/home/pavan/anaconda3/envs/rstudio/include -fdebug-prefix-map==/usr/local/src/conda/- -fdebug-prefix-map==/usr/local/src/conda-prefix  -c init.c -o init.o
+"
+"1","x86_64-conda_cos6-linux-gnu-cc -I/home/pavan/anaconda3/envs/rstudio/lib/R/include -DNDEBUG   -DNDEBUG -D_FORTIFY_SOURCE=2 -O2 -I/home/pavan/anaconda3/envs/rstudio/include   -fpic  -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -pipe -I/home/pavan/anaconda3/envs/rstudio/include -fdebug-prefix-map==/usr/local/src/conda/- -fdebug-prefix-map==/usr/local/src/conda-prefix  -c regTree.c -o regTree.o
+"
+"1","x86_64-conda_cos6-linux-gnu-cc -I/home/pavan/anaconda3/envs/rstudio/lib/R/include -DNDEBUG   -DNDEBUG -D_FORTIFY_SOURCE=2 -O2 -I/home/pavan/anaconda3/envs/rstudio/include   -fpic  -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -pipe -I/home/pavan/anaconda3/envs/rstudio/include -fdebug-prefix-map==/usr/local/src/conda/- -fdebug-prefix-map==/usr/local/src/conda-prefix  -c regrf.c -o regrf.o
+"
+"1","x86_64-conda_cos6-linux-gnu-cc -I/home/pavan/anaconda3/envs/rstudio/lib/R/include -DNDEBUG   -DNDEBUG -D_FORTIFY_SOURCE=2 -O2 -I/home/pavan/anaconda3/envs/rstudio/include   -fpic  -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -pipe -I/home/pavan/anaconda3/envs/rstudio/include -fdebug-prefix-map==/usr/local/src/conda/- -fdebug-prefix-map==/usr/local/src/conda-prefix  -c rf.c -o rf.o
+"
+"1","x86_64-conda_cos6-linux-gnu-gfortran   -fpic  -fopenmp -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -pipe -I/home/pavan/anaconda3/envs/rstudio/include -fdebug-prefix-map==/usr/local/src/conda/- -fdebug-prefix-map==/usr/local/src/conda-prefix  -c rfsub.f -o rfsub.o
+"
+"1","x86_64-conda_cos6-linux-gnu-cc -I/home/pavan/anaconda3/envs/rstudio/lib/R/include -DNDEBUG   -DNDEBUG -D_FORTIFY_SOURCE=2 -O2 -I/home/pavan/anaconda3/envs/rstudio/include   -fpic  -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -pipe -I/home/pavan/anaconda3/envs/rstudio/include -fdebug-prefix-map==/usr/local/src/conda/- -fdebug-prefix-map==/usr/local/src/conda-prefix  -c rfutils.c -o rfutils.o
+"
+"1","x86_64-conda_cos6-linux-gnu-cc -shared -L/home/pavan/anaconda3/envs/rstudio/lib/R/lib -Wl,-O2 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -Wl,-rpath,/home/pavan/anaconda3/envs/rstudio/lib -L/home/pavan/anaconda3/envs/rstudio/lib -o randomForest.so classTree.o init.o regTree.o regrf.o rf.o rfsub.o rfutils.o -lgfortran -lm -lgomp -lquadmath -lpthread -L/home/pavan/anaconda3/envs/rstudio/lib/R/lib -lR
+"
+"2","installing to /home/pavan/anaconda3/envs/rstudio/lib/R/library/randomForest/libs
+"
+"2","** R
+"
+"2","** data
+"
+"2","** inst
+"
+"2","** byte-compile and prepare package for lazy loading
+"
+"2","** help
+"
+"2","*** installing help indices
+"
+"2","** building package indices
+"
+"2","** testing if installed package can be loaded
+"
+"2","* DONE (randomForest)
+"
+"2","* installing *source* package ‘import’ ...
+"
+"2","** package ‘import’ successfully unpacked and MD5 sums checked
+"
+"2","** R
+"
+"2","** inst
+"
+"2","** byte-compile and prepare package for lazy loading
+"
+"2","** help
+"
+"2","*** installing help indices
+"
+"2","** building package indices
+"
+"2","** installing vignettes
+"
+"2","** testing if installed package can be loaded
+"
+"2","* DONE (import)
+"
+"2","
+"
+"2","The downloaded source packages are in
+	‘/tmp/RtmpEBEZ5K/downloaded_packages’"
+"2","
+"
+"2","Updating HTML index of packages in '.Library'
+"
+"2","Making 'packages.html' ..."
+"2"," done
+"
+"2","executing %dopar% sequentially: no parallel backend registered"

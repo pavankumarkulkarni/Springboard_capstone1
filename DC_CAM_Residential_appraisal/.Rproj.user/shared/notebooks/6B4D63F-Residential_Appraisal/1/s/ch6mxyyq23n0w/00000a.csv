@@ -1,0 +1,2 @@
+"0","condition <- c(1,2,6,11)"
+"0","draw_boxplot_graph(ROOF, 'ROOF_D','Distribution of roof type by price',condition)"

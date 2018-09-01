@@ -1,0 +1,7 @@
+"0","residential_clean_df <- residential_clean_df %>%"
+"0","  mutate(heat_coding = case_when(HEAT == 13 ~ 'ht_hot_water_rad',"
+"0","                                 HEAT == 1 ~ 'ht_forced_air',"
+"0","                                 HEAT == 7 ~ 'ht_warm_cool',"
+"0","                                 HEAT == 8 ~ 'ht_ht_pump',"
+"0","                                 TRUE ~ 'ht_other')) %>%"
+"0","  mutate(heat_coding = as.factor(heat_coding)) "

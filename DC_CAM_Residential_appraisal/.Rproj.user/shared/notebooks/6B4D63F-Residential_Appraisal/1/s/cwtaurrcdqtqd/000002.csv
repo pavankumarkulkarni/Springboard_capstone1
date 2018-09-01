@@ -1,0 +1,7 @@
+"0","residential_clean_df <- residential_clean_df %>%"
+"0","  mutate(intwall_coding = case_when(EXTWALL == 2 ~ 'intwall_carpet',"
+"0","                                 EXTWALL == 3 ~ 'intwall_wood_floor',"
+"0","                                 EXTWALL == 6 ~ 'intwall_hard_wood',"
+"0","                                 EXTWALL == 11 ~ 'intwall_carpet_hardwood',"
+"0","                                 TRUE ~ 'intwall_other')) %>%"
+"0","  mutate(intwall_coding = as.factor(intwall_coding)) "

@@ -1,0 +1,2 @@
+"0","exclusion_lst <- c(4,7,6,1)"
+"0","draw_boxplot_graph(STYLE, 'STYLE_D','Distribution of Price by style',exclusion_lst)"

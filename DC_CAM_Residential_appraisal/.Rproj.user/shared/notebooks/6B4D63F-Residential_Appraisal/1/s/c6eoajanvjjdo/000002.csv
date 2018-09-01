@@ -1,0 +1,3 @@
+"0","residential_clean_df[residential_clean_df['SSL'] == '0869    0027','BATHROOM_TOTAL'] = 5"
+"0","residential_clean_df <- residential_clean_df %>%"
+"0","  filter(!is.na(BATHROOM_TOTAL)) "

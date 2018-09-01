@@ -1,0 +1,2 @@
+"0","residential_clean_df <- residential_clean_df %>%"
+"0","  mutate(condition_coding = as.numeric(CNDTN))"

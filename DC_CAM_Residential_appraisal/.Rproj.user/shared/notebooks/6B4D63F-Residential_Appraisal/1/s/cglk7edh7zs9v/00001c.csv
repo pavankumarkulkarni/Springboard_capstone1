@@ -1,0 +1,2 @@
+"0","#below are some extreme values from area perspective. However they seems valid numbers"
+"0","residential_clean_df[residential_clean_df$GBA > 40000,]"

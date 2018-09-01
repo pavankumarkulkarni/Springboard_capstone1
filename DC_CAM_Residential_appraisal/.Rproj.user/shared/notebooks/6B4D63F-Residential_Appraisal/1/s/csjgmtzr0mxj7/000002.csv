@@ -1,0 +1,8 @@
+"0","residential_clean_df <- residential_clean_df %>%"
+"0","  mutate(grade_coding = case_when(GRADE == 3 ~ 'grade_average',"
+"0","                                 GRADE == 4 ~ 'grade_above_average',"
+"0","                                 GRADE == 6 ~ 'grade_very_good',"
+"0","                                 GRADE == 7 ~ 'grade_excellent',"
+"0","                                 GRADE %in% c(10,11,12) ~ 'grade_other_high',"
+"0","                                 TRUE ~ 'grade_other')) %>%"
+"0","  mutate(grade_coding = as.factor(grade_coding)) "

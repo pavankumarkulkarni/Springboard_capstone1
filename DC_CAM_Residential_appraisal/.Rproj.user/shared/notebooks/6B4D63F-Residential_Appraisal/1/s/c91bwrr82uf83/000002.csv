@@ -1,0 +1,7 @@
+"0","residential_clean_df <- residential_clean_df %>%"
+"0","  mutate(etxwall_coding = case_when(EXTWALL == 4 ~ 'extwall_vinyl_siding',"
+"0","                                 EXTWALL == 6 ~ 'extwall_siding',"
+"0","                                 EXTWALL == 14 ~ 'extwall_common_brick',"
+"0","                                 EXTWALL == 22 ~ 'extwall_brick_siding',"
+"0","                                 TRUE ~ 'extwall_other')) %>%"
+"0","  mutate(etxwall_coding = as.factor(etxwall_coding)) "

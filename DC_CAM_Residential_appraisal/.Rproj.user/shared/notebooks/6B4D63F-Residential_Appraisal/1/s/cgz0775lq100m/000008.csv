@@ -1,0 +1,2 @@
+"0","exclusion_lst <- c(7,1,8,6,2)"
+"0","draw_boxplot_graph(STRUCT, 'STRUCT_D','Distribution of Price by Structure',exclusion_lst)"

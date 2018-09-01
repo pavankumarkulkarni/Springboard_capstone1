@@ -1,0 +1,2 @@
+"0","exclusion_lst <- c(3,4,6,7)"
+"0","draw_boxplot_graph(GRADE, 'GRADE_D','Distribution of Price by grade',exclusion_lst)"

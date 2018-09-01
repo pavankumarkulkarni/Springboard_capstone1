@@ -1,0 +1,5 @@
+"0","residential_clean_df <- residential_clean_df %>%"
+"0","  mutate(AC = if_else(AC == '0', 'N',AC))"
+"0","# code N to 0 and Y to 1."
+"0"," residential_clean_df <- residential_clean_df %>%"
+"0","  mutate(ac_coding = as.numeric(if_else(AC == 'N', '0','1')))"

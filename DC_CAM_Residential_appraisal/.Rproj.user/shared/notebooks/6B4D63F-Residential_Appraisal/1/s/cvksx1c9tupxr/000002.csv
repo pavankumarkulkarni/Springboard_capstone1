@@ -1,0 +1,2 @@
+"0","residential_clean_df <- residential_clean_df %>%"
+"0","  select(-BLDG_NUM, -AC, -EXTWALL, -EXTWALL_D, -INTWALL, -INTWALL_D, -GRADE, -GRADE_D, -CNDTN, -CNDTN_D, -HEAT, -HEAT_D, -STYLE, -STYLE_D, -STRUCT, -STRUCT_D, -ROOF, -ROOF_D)"

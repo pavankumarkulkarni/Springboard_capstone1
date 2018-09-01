@@ -1,0 +1,1 @@
+"0","residential_clean_df[residential_clean_df$LANDAREA > 500000,]"

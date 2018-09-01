@@ -1,0 +1,8 @@
+"0","residential_clean_df <- residential_clean_df %>%"
+"0","  mutate(style_coding = case_when(STYLE == 4 ~ 'stl_2_story',"
+"0","                                 STYLE == 7 ~ 'stl_3_story',"
+"0","                                 STYLE == 6 ~ 'stl_2_h_story',"
+"0","                                 STYLE == 1 ~ 'stl_1_story',"
+"0","                                 STYLE %in% c(10,8,9) ~ 'stl_other_high',"
+"0","                                 TRUE ~ 'stl_other')) %>%"
+"0","  mutate(style_coding = as.factor(style_coding)) "

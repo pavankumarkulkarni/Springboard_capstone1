@@ -1,0 +1,8 @@
+"0","residential_clean_df <- residential_clean_df %>%"
+"0","  mutate(roof_coding = case_when(ROOF == 1 ~ 'rf_comp_shingle',"
+"0","                                 ROOF == 2 ~ 'rf_built_up',"
+"0","                                 ROOF == 6 ~ 'rf_metal_sms',"
+"0","                                 ROOF == 11 ~ 'rf_slate',"
+"0","                                 ROOF %in% c(10,15,13) ~ 'rf_other_high',"
+"0","                                 TRUE ~ 'rf_other')) %>%"
+"0","  mutate(roof_coding = as.factor(roof_coding)) "

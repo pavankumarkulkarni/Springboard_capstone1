@@ -1,0 +1,2 @@
+"0","residential_clean_df <- residential_raw_df %>%"
+"0","  subset( select = -c(SSL, GIS_LAST_MOD_DTTM))"

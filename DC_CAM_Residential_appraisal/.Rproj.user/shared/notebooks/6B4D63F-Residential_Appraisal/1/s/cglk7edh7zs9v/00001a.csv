@@ -1,0 +1,5 @@
+"0","residential_clean_df %>%"
+"0","  select(GBA,LANDAREA) %>%"
+"0","  gather(key = 'type', value = 'area') %>%"
+"0","  ggplot(data = ., aes(x = type, y = area)) +"
+"0","  geom_boxplot()"

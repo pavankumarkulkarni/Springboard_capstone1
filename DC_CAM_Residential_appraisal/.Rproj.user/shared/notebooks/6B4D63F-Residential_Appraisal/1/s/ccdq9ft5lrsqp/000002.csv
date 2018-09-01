@@ -1,0 +1,6 @@
+"0","# 0 is vacant and 1 is non vacant"
+"0","residential_clean_df <- residential_clean_df %>%"
+"0","  mutate(LAND_USE = case_when(USECODE <= 19 ~ 0,"
+"0","                              USECODE > 19 ~ 1)) %>%"
+"0","  mutate(LAND_USE = as.factor(LAND_USE)) %>%"
+"0","  select(-USECODE)"

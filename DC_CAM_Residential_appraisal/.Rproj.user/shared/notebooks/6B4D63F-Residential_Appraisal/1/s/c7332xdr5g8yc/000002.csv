@@ -1,0 +1,4 @@
+"0","rf_model <- train(PRICE~., data = train, method = 'parRF')"
+"2","Error in terms.formula(formula, data = data) : 
+  'data' argument is of the wrong type
+"
