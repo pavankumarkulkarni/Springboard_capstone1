@@ -13,6 +13,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
 ```
 
 ## Introduction.
@@ -55,6 +56,7 @@ library(e1071)
 library(randomForest)
 library(import)
 library(xgboost)
+library(glmnet)
 ```
 
 ### Reusable functions.  
@@ -541,6 +543,9 @@ There are 66 rows with missing values excluding PRICE columns. Let's drop them.
 ```{r missing_values}
 residential_clean_df <- residential_clean_df %>%
   drop_na(-PRICE)
+
+residential_clean_df <- residential_clean_df %>%
+  filter(PRICE != 0)
 ```  
 ### dummyfication.  
 
@@ -611,17 +616,116 @@ res_dummy_df <- res_dummy_df %>%
   select(-!!nzv_cols) 
 ```
 
+##Prepare the dataset.  
 
 ## Test and train dataset.
 
+**SALES QUALIFICATION.**  
 
-SALES QUALIFICATION
 The basic sales information is available at the Register of Deeds. However, before a proper analysis can be made between the sales for the tax year and those of similar properties that did not sell, the sales must be checked or qualified to verify that and "arm's length" transaction has taken place and the source of information is correct. The transaction must then be further checked to determine if all rights and benefits of property ownership were transferred and if any personal property was involved. This procedure is known as SALES QUALIFICATION. Sales of some residential, but primarily agricultural, industrial and commercial properties often include personal property. There are also a number of intra-company or intra-family transfers "distress" sales, etc., many of which have limiting terms and conditions which affect the sales price. For these reasons and others, further qualification of sales of this type through communication with one or more of the parties involved may be necessary to determine if the sales price should be adjusted for terms, personal property, etc., or disqualified entirely.  
+### Removing outliers.  
 
-```{r test_train_1}
-set.seed(12309)
+```{r outliers_1}
 res_data_modelling <- res_dummy_df %>%
   filter(QUALIFIEDU == 0, !is.na(PRICE))
+```
+
+Below columns are not one hot encoded. They are continuous variables.Need to remove outliers defined as mean +/- 1.5*sd.  
+
+ROOMS.  
+NUM_UNITS.  
+BEDRM  
+STORIES  
+FIREPLACES  
+BATH_ROOM_TOTAL  
+AGE  
+SALE_YEAR  
+and  
+PRICE.  
+
+```{r outlier_PRICE}
+res_data_modelling %>%
+  select(PRICE) %>%
+  ggplot(data = ., aes(y = PRICE)) +
+  geom_boxplot()
+res_data_modelling %>%
+  select(PRICE) %>%
+  ggplot(data = ., aes(x = PRICE)) +
+  geom_histogram(bins=60)
+
+res_data_modelling %>%
+  filter(PRICE > quantile(PRICE,1/100),
+         PRICE < quantile(PRICE,99/100)) %>%
+  select(PRICE) %>%
+  ggplot(data = ., aes(x = PRICE)) +
+  geom_histogram(bins=60)
+
+
+PRICE_outlier_rows <- which(res_data_modelling$PRICE < quantile(res_data_modelling$PRICE,1/100)|
+        res_data_modelling$PRICE > quantile(res_data_modelling$PRICE,99/100))
+
+set.seed(12309)
+# Take log of PRICE for prediction as PRICE need to be positive.
+res_data_modelling <- res_data_modelling%>%
+  mutate(PRICE_LOG = log(PRICE))
+
+```  
+PRICE is dependent variable and only positive value makes sense. Hence it needs to be log transfomred. Looking at the above 3 graphs top and bottom 1 percentile can be removed as outliers.  
+
+```{r ROOMS}
+res_data_modelling %>%
+  select(ROOMS) %>%
+  ggplot(data = ., aes(y = ROOMS)) +
+  geom_boxplot()
+res_data_modelling %>%
+  select(ROOMS) %>%
+  ggplot(data = ., aes(x = ROOMS)) +
+  geom_histogram(bins=15)
+ROOMS_outlier_rows <- which(res_data_modelling$ROOMS == 0 |
+        res_data_modelling$ROOMS >12 )
+```  
+From the box plot, rooms greater than 11 on upper side are outliers.  
+Also rooms ==0 are incorrect as they have bathroom_total, bedroom and stories non zero.  
+
+```{r BEDRM}
+res_data_modelling %>%
+  select(BEDRM) %>%
+  ggplot(data = ., aes(y = BEDRM)) +
+  geom_boxplot()
+res_data_modelling %>%
+  select(BEDRM) %>%
+  ggplot(data = ., aes(x = BEDRM)) +
+  geom_histogram(bins=35)
+BEDROOMS_outlier_rows <- which(res_data_modelling$BEDRM == 0 |
+        res_data_modelling$BEDRM >12 )
+```  
+From the box plot, BEDRM greater than 11 on upper side are outliers.  
+Also BEDRM ==0 are incorrect as they have bathroom_total, bedroom and stories non zero.  
+
+```{r STORIES}
+res_data_modelling %>%
+  select(STORIES) %>%
+  ggplot(data = ., aes(y = STORIES)) +
+  geom_boxplot()
+res_data_modelling %>%
+  select(STORIES) %>%
+  ggplot(data = ., aes(x = STORIES)) +
+  geom_histogram(bins=50)
+STORIES_outlier_rows <- which(res_data_modelling$STORIES > 10 )
+```   
+
+Clearly any buildings with more than 10 stories is outlier.   
+
+```{r remove outliers}
+outlier_rows <- STORIES_outlier_rows %>%
+  union(BEDROOMS_outlier_rows) %>%
+  union(ROOMS_outlier_rows) %>%
+  union(PRICE_outlier_rows) %>%
+  sort()
+res_data_modelling <- res_data_modelling[-outlier_rows,]
+```
+ 
+```{r test_train_2}
 trainIndex = createDataPartition(res_data_modelling$PRICE, p=0.8, list=FALSE)
 train_residence_df <- res_data_modelling[trainIndex, ]
 test_residence_df <-  res_data_modelling[-trainIndex, ]
@@ -629,6 +733,21 @@ train_obj <- train_residence_df %>% select(OBJECTID)
 train_residence_df <- train_residence_df %>% select(-OBJECTID,-QUALIFIEDU)
 test_obj <- test_residence_df %>% select(OBJECTID)
 test_residence_df <- test_residence_df %>% select(-OBJECTID, -QUALIFIEDU)
+
+```  
+
+### scale data.  
+```{r scale_data}
+set.seed(12309)
+scaled_data_model <- preProcess(train_residence_df %>%
+                                  select(-PRICE, -PRICE_LOG), 
+                                method = 'scale')
+train_residence_df_scaled <- predict(scaled_data_model, 
+                                     newdata = train_residence_df %>%
+                                       select(-PRICE))
+test_residence_df_scaled <- predict(scaled_data_model, 
+                                    newdata = test_residence_df %>%
+                                       select(-PRICE))
 ```  
 
 ## Run models.  
@@ -638,14 +757,35 @@ test_residence_df <- test_residence_df %>% select(-OBJECTID, -QUALIFIEDU)
 
 ```{r lm_model_1}
 set.seed(6969)
-simple_linear_model <- train(PRICE~.,data = train_residence_df, method = 'lm')
+simple_linear_model <- train(PRICE_LOG~.,data = train_residence_df_scaled, method = 'lm')
 summary(simple_linear_model)
 ```  
-Only 2 of the features are not significant. Around 60% of variance is explined by this model. This can be taken as baseline.
+Adjusted R-Square is 77.35% which is pretty good.  
 
 ```{r lm_mod_2}
-lm_predict <- predict(simple_linear_model, test_residence_df)
-postResample(pred = lm_predict, obs = test_residence_df$PRICE)
+lm_predict <- predict(simple_linear_model, test_residence_df_scaled)
+
+# measuring the model performance on original price units. 
+# model is predicting log of price. Taking exponential 
+
+postResample(pred = exp(lm_predict), obs = test_residence_df$PRICE) 
+
+mod <- cbind(pred = exp(lm_predict), obs = test_residence_df$PRICE)
+colnames(mod) <- c('pre','obs')
+mod <- data.frame(mod) %>%
+  mutate(res = pre-obs)
+ggplot(data = mod, aes(x = pre, y = res)) +
+  geom_point() +
+  labs(title = 'Residuals vs predicted values (original PRICE scale)')
+
+
+mod <- cbind(pred = lm_predict, obs = test_residence_df_scaled$PRICE_LOG)
+colnames(mod) <- c('pre','obs')
+mod <- data.frame(mod) %>%
+  mutate(res = pre-obs)
+ggplot(data = mod, aes(x = pre, y = res)) +
+  geom_point() +
+  labs(title = 'Residuals vs predicted values (LOG PRICE scale)')
 ```  
 The model performance on test data is 62.25%.  
 
@@ -653,7 +793,7 @@ The model performance on test data is 62.25%.
 ```{r lm_rcv_1}
 set.seed(59568)
 tc <- trainControl(method = 'repeatedcv', number = 10)
-lm2_model <- train(PRICE~., data = train_residence_df, method = 'lm',
+lm2_model <- train(PRICE_LOG~., data = train_residence_df_scaled, method = 'lm',
                    trControl = tc)
 summary(lm2_model)
 ```  
@@ -664,23 +804,99 @@ There is no difference when repeatedCross validation method is used.
 ```{r glm_1}
 set.seed(5684)
 tc <- trainControl(method = 'repeatedcv', number = 10)
-glm_model <- train(PRICE~., data = train_residence_df, method = 'glm',
+glm_model <- train(PRICE_LOG~., data = train_residence_df_scaled, method = 'glm',
                    trControl = tc)
 summary(glm_model)
 
-glm_predict_train <- predict(glm_model, train_residence_df)
-postResample(pred = glm_predict_train, obs = train_residence_df$PRICE)
+glm_predict_train <- predict(glm_model, train_residence_df_scaled)
+postResample(pred = glm_predict_train, obs = train_residence_df_scaled$PRICE_LOG)
 
-glm_predict <- predict(glm_model, test_residence_df)
-postResample(pred = glm_predict, obs = test_residence_df$PRICE)
+glm_predict <- predict(glm_model, test_residence_df_scaled)
+postResample(pred = glm_predict, obs = test_residence_df_scaled$PRICE_LOG)
 ```  
 
 ### Random Frest.
 
 ```{r rf_1}
 set.seed(90898)
-rf1 <- randomForest(PRICE~., data = train_residence_df, ntree=30)
+rf1 <- randomForest(PRICE_LOG~., data = train_residence_df_scaled, ntree=10)
 summary(rf1)
-pred_rf <- predict(rf1, test_residence_df)
-postResample(pred = pred_rf, obs = test_residence_df$PRICE)
+pred_rf <- predict(rf1, test_residence_df_scaled)
+postResample(pred = pred_rf, obs = test_residence_df_scaled$PRICE_LOG)
+```  
+
+### Xtreme gradient boosting.  
+
+```{r xgb_1}
+xg_model <- xgboost(data = data.matrix(train_residence_df_scaled %>%
+                                         select(-PRICE_LOG)), 
+                    eta = 1, objective = 'reg:linear', 
+                    eval_metric = 'rmse', nround=20, 
+                    label = train_residence_df_scaled$PRICE_LOG)
+summary(xg_model)
+xgb_pre <- predict(xg_model, data.matrix(test_residence_df_scaled %>%
+                                         select(-PRICE_LOG)))
+postResample(pred = xgb_pre, test_residence_df_scaled$PRICE_LOG)
+```
+
+```{r model_eval}
+t <- cbind(test_residence_df_scaled$PRICE_LOG, xgb_pre)
+colnames(t) <- c('act','pre')
+ggplot(data = data.frame(t), aes(x = act, y = pre)) +
+  geom_point()
+
+
+t1 <- cbind(test_residence_df_scaled$PRICE_LOG, pred_rf)
+colnames(t1) <- c('act','pre')
+ggplot(data = data.frame(t1), aes(x = act, y = pre)) +
+  geom_point()
+```  
+
+### Regularization regression.  
+
+LASSO, Ridge regression and Elastic regresssion.  
+
+```{r lasso_1}
+lasso_model <- cv.glmnet(data.matrix(train_residence_df_scaled %>%
+                                         select(-PRICE_LOG)),
+                         train_residence_df_scaled$PRICE_LOG, 
+                         family = 'gaussian', alpha=1)
+summary(lasso_model)
+lasso_pre <- predict(lasso_model, data.matrix(test_residence_df_scaled %>%
+                                         select(-PRICE_LOG)))
+postResample(pred = lasso_pre, test_residence_df_scaled$PRICE_LOG)
+
+t2 <- cbind(test_residence_df_scaled$PRICE_LOG, lasso_pre)
+colnames(t2) <- c('act','pre')
+ggplot(data = data.frame(t2), aes(x = act, y = pre)) +
+  geom_point()
+```  
+
+```{r ridge_1}
+ridge_model <- cv.glmnet(data.matrix(train_residence_df_scaled %>%
+                                         select(-PRICE_LOG)),
+                         train_residence_df_scaled$PRICE_LOG, family = 'gaussian', alpha=0)
+summary(ridge_model)
+ridge_pre <- predict(ridge_model, data.matrix(test_residence_df_scaled %>%
+                                         select(-PRICE_LOG)))
+postResample(pred = ridge_pre, test_residence_df_scaled$PRICE_LOG)
+
+t3 <- cbind(test_residence_df_scaled$PRICE_LOG, ridge_pre)
+colnames(t3) <- c('act','pre')
+ggplot(data = data.frame(t3), aes(x = act, y = pre)) +
+  geom_point()
+```  
+```{r elastic_1}
+ridge_model <- cv.glmnet(data.matrix(train_residence_df_scaled %>%
+                                         select(-PRICE_LOG)),
+                         train_residence_df_scaled$PRICE, family = 'gaussian')
+summary(ridge_model)
+ridge_pre <- predict(ridge_model, data.matrix(test_residence_df_scaled %>%
+                                         select(-PRICE_LOG)))
+postResample(pred = ridge_pre, test_residence_df_scaled$PRICE_LOG)
+
+t3 <- cbind(test_residence_df_scaled$PRICE_LOG, ridge_pre)
+colnames(t3) <- c('act','pre')
+ggplot(data = data.frame(t3), aes(x = act, y = pre)) +
+  geom_point()
 ```
