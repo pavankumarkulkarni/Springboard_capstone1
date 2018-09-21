@@ -57,6 +57,7 @@ library(randomForest)
 library(import)
 library(xgboost)
 library(glmnet)
+library(stats)
 ```
 
 ### Reusable functions.  
@@ -91,7 +92,20 @@ draw_boxplot_graph <- function(col_name, col_name_d, graph_title, excl_list){
   labs(title = graph_title) +
   xlab(col_name_d)
 }
+
+error_plot <- function(pre,obs){
+df <- as.data.frame(cbind(pre, obs))
+colnames(df) <- c('pred','obs')
+ggplot(data = df, aes(x = pred, y = obs-pred)) +
+  geom_point(shape = 1)+
+  geom_abline(slope = 0, intercept = 0, color = 'red') +
+  geom_smooth(method = 'loess') +
+  labs(x = 'Fitted Values',y = 'Residuals', 
+       title = 'Residuals Vs Fitted',
+       caption = 'No pattern indicated good model')
+}
 ```
+model_diagnostic_plots(exp(lm_predict), test_residence_df$PRICE, 'Linear Regression')
 
 ### Data Load.
 ```{r loaddata, echo=FALSE}
@@ -101,14 +115,23 @@ residential_raw_df <- read_csv('Data/Computer_Assisted_Mass_Appraisal__Residenti
 summary(residential_raw_df)
 ```
 
-Dataset has 39 variables and 107,237 observations. Create a new df called cleaned version.  
 Object ID is serial number which will be used for merging later in.  
 last variable the db updated date and SSL  is not used for predictive modelling.
 These are of no importance for data analysis. Let's exclude these from the data frame.  
+**SALES QUALIFICATION.**  
+
+The basic sales information is available at the Register of Deeds. However, before a proper analysis can be made between the sales for the tax year and those of similar properties that did not sell, the sales must be checked or qualified to verify that and "arm's length" transaction has taken place and the source of information is correct. The transaction must then be further checked to determine if all rights and benefits of property ownership were transferred and if any personal property was involved. This procedure is known as SALES QUALIFICATION. Sales of some residential, but primarily agricultural, industrial and commercial properties often include personal property. There are also a number of intra-company or intra-family transfers "distress" sales, etc., many of which have limiting terms and conditions which affect the sales price. For these reasons and others, further qualification of sales of this type through communication with one or more of the parties involved may be necessary to determine if the sales price should be adjusted for terms, personal property, etc., or disqualified entirely.  
+
+Dataset has 39 variables and 107,237 observations. Create a new df called cleaned version with only Qualified sales. Others can be used later for testing the model.  
 
 ```{r cleanData}
 residential_clean_df <- residential_raw_df %>%
-  subset( select = -c(SSL, GIS_LAST_MOD_DTTM))
+  select(-SSL, -GIS_LAST_MOD_DTTM) %>%
+  filter(QUALIFIED == 'Q')
+
+residential_unqualified <- residential_raw_df %>%
+  select(-SSL, -GIS_LAST_MOD_DTTM) %>%
+  filter(QUALIFIED == 'U') 
 ```
 
 ## Exploratory Data Analysis.  
@@ -125,12 +148,12 @@ table(residential_clean_df$HEAT_D, residential_clean_df$HEAT)
 draw_bar_graph(HEAT_D, 'Residences by heating type','Heating Type')
 ```  
 
-'Hot Water Rad (13)', 'Forced Air(1)', Warm Cool(7)' and 'Ht Pump(8)' have majority of residences.
+'Forced Air(1)', 'Hot Water Rad (13)', Warm Cool(7)' have majority of residences.
 Analyse rest of categories and any apparent relation with PRICE.
 
 ```{r HEAT_2}
 condition <- c(1,7,8,13)
-draw_boxplot_graph(HEAT, 'HEAT_D','graph_tile',condition)
+draw_boxplot_graph(HEAT, 'HEAT_D','Heat Type vs Price',condition)
 ```  
   
 Except one outlier all other have very similar distribution. Let's look at No Data and NA values.
@@ -139,7 +162,7 @@ Except one outlier all other have very similar distribution. Let's look at No Da
 residential_clean_df %>%
   filter(is.na(HEAT_D))
 
-# most of the columns on these 112 are NA. Let's drop these rows.
+# most of the columns on these 1 are NA. Let's drop these rows.
 residential_clean_df <- residential_clean_df %>%
   filter(!is.na(HEAT_D))
 
@@ -148,7 +171,6 @@ Below will be the coding.
 heat_coding = hot_water_rad if 'Hot Water Rad (13)'  
             = forced_air if 'Forced Air(1)'  
             = warm_cool if Warm Cool(7)'  
-            = ht_pump if 'Ht Pump(8)'  
             = other_heating for all other.  
 Make the column factor and remove HEAT and HEAT_D.  
 
@@ -157,7 +179,6 @@ residential_clean_df <- residential_clean_df %>%
   mutate(heat_coding = case_when(HEAT == 13 ~ 'ht_hot_water_rad',
                                  HEAT == 1 ~ 'ht_forced_air',
                                  HEAT == 7 ~ 'ht_warm_cool',
-                                 HEAT == 8 ~ 'ht_ht_pump',
                                  TRUE ~ 'ht_other')) %>%
   mutate(heat_coding = as.factor(heat_coding)) 
 ```
@@ -174,22 +195,20 @@ draw_bar_graph(ROOF_D, 'Residences by roof type','Roof Type')
   
 Built Up(2), Comp Shingle(1), Metal - Sms(6) and Slate(11) are majority of houses roof types. Rest of the types can be bucketted together. Before that lets see if they have any relation with PRICE.  
 
-```{r Root_2}
+```{r roof_2}
 condition <- c(1,2,6,11)
 draw_boxplot_graph(ROOF, 'ROOF_D','Distribution of roof type by price',condition)
 
 ```  
 
-Concrete Tile, Wood - FS and Neopren have higher median PRICE compared to other roof types.  
-These 3 will be bucketed into other_high and rest in other.  
-Built Up(2), Comp Shingle(1), Metal - Sms(6) and Slate(11) are majority of houses roof types. Rest of the
+Concrete Tile and Metal-Cpr have higher median PRICE compared to other roof types.  
+However they are very small number of residences. They are all bucketted in other.
 ```{r roof_4}
 residential_clean_df <- residential_clean_df %>%
   mutate(roof_coding = case_when(ROOF == 1 ~ 'rf_comp_shingle',
                                  ROOF == 2 ~ 'rf_built_up',
                                  ROOF == 6 ~ 'rf_metal_sms',
                                  ROOF == 11 ~ 'rf_slate',
-                                 ROOF %in% c(10,15,13) ~ 'rf_other_high',
                                  TRUE ~ 'rf_other')) %>%
   mutate(roof_coding = as.factor(roof_coding)) 
 
@@ -214,7 +233,7 @@ draw_boxplot_graph(STYLE, 'STYLE_D','Distribution of Price by style',exclusion_l
 ```
   
     
-4 story, 3.5 story unfinished and 3.5 story unifished are grouped and rest in other.
+4 story and 3.5 story finished are grouped and rest in other.
 
 ```{r style_3}
 
@@ -223,7 +242,7 @@ residential_clean_df <- residential_clean_df %>%
                                  STYLE == 7 ~ 'stl_3_story',
                                  STYLE == 6 ~ 'stl_2_h_story',
                                  STYLE == 1 ~ 'stl_1_story',
-                                 STYLE %in% c(10,8,9) ~ 'stl_other_high',
+                                 STYLE %in% c(10,9) ~ 'stl_other_high',
                                  TRUE ~ 'stl_other')) %>%
   mutate(style_coding = as.factor(style_coding)) 
 ```  
@@ -246,7 +265,7 @@ draw_boxplot_graph(STRUCT, 'STRUCT_D','Distribution of Price by Structure',exclu
 ```
   
     
-Let's group everything else into bucket.  
+Default structure has high price however there are only 3 residences. Let's group everything else into bucket.  
 
 ```{r STRUCT_3}
 residential_clean_df <- residential_clean_df %>%
@@ -276,16 +295,12 @@ draw_boxplot_graph(GRADE, 'GRADE_D','Distribution of Price by grade',exclusion_l
 ```  
   
     
-Exceptional-b(10),Exceptional-c(11) and Exceptional-d(12) are one group and rest in othet.  
-
-
 ```{r GRADE_3}
 residential_clean_df <- residential_clean_df %>%
   mutate(grade_coding = case_when(GRADE == 3 ~ 'grade_average',
                                  GRADE == 4 ~ 'grade_above_average',
                                  GRADE == 6 ~ 'grade_very_good',
                                  GRADE == 7 ~ 'grade_excellent',
-                                 GRADE %in% c(10,11,12) ~ 'grade_other_high',
                                  TRUE ~ 'grade_other')) %>%
   mutate(grade_coding = as.factor(grade_coding)) 
 ```  
@@ -314,7 +329,7 @@ table(residential_clean_df$INTWALL_D, residential_clean_df$INTWALL)
 draw_bar_graph(INTWALL_D, 'Residences by internal wall','Internal Wall')
 ```  
 
-Hardwood(6), Hardwood/Carp(11), wood_floor(3) and carpet(2) are buckets. Rest are analysed.  
+Hardwood(6), Hardwood/Carp(11). Rest are analysed.  
 
 ```{r intwall_2}
 exclusion_lst <- c(2,3,6,11)
@@ -327,9 +342,7 @@ all these can be grouped into 1.
 ```{r intwall_3}
 residential_clean_df <- residential_clean_df %>%
   mutate(intwall_coding = case_when(EXTWALL == 2 ~ 'intwall_carpet',
-                                 EXTWALL == 3 ~ 'intwall_wood_floor',
                                  EXTWALL == 6 ~ 'intwall_hard_wood',
-                                 EXTWALL == 11 ~ 'intwall_carpet_hardwood',
                                  TRUE ~ 'intwall_other')) %>%
   mutate(intwall_coding = as.factor(intwall_coding)) 
 ```  
@@ -414,14 +427,14 @@ residential_clean_df <- residential_clean_df %>%
   mutate(BATHROOM_TOTAL = BATHRM + 0.5*HF_BATHRM) 
 summary(residential_clean_df$BATHROOM_TOTAL)
 ```
-Check out the 113 records which have NA for BATHROOM_TOT
+Check out the single record which have NA for BATHROOM_TOT
 
 ```{r bathroom_2}
 residential_clean_df %>%
   filter(is.na(BATHROOM_TOTAL))
 ```
 
-Only record with OBJECTID '11154' has bathroom 5 and hf_bathroom as na. Total bath room can be imputed to 5. Rest of the records have na in majority of the columns. These records need to be deleted.
+Only record with OBJECTID '11154' has bathroom 5 and hf_bathroom as na. Total bath room can be imputed to 5. 
 
 ```{r bathroom_3}
 residential_clean_df[residential_clean_df['OBJECTID'] == 11154,'BATHROOM_TOTAL'] = 5
@@ -451,7 +464,8 @@ residential_clean_df %>%
   select('ROOMS','BEDRM','KITCHENS','FIREPLACES','BATHROOM_TOTAL') %>%
   gather(key = 'room_type', value = 'room_count') %>%
   ggplot(data = ., aes(x=room_type, y = room_count )) +
-  geom_boxplot()
+  geom_boxplot() +
+  labs(title = 'Distribution of number of different room', y = 'residences')
 ```
   
 residence with 101 ROOMS is outlier. Let's investigate it.
@@ -475,28 +489,70 @@ Rationale of feature engineering.
 2. Age can be calculated by sale_year - max(AYB, EYB, YR_RMDL)  
 3. there should be differentiation of property remodelled vs newly buit in the same year. Create one variable (factor) if the property is remodelled.  
 
-```{r year}
-# extract sale year. 1900 is coded for not sold residences. mutating these records to 2018 to predict the sale for current year
-residential_clean_df <- residential_clean_df %>%
-  mutate(sale_year =  if_else(year(residential_clean_df$SALEDATE)==1900,2018,
-                              year(residential_clean_df$SALEDATE)))
 
-# to check if the remodelling is done and ppulate the variable. Some of the remodelling happened after the sale date.We need to check if the remodelling happened before sale date to populare remodelled flag.
+```{r remodel}
+# Out of total 27,960 remodelled houses, 16,685 are remodelled before sale year. So these should be having flag for remodelled.
+
+residential_clean_df %>%
+  filter(! is.na(YR_RMDL)) %>%
+  summarise(n())
+
+residential_clean_df %>%
+  filter(YR_RMDL < year(SALEDATE)) %>%
+  summarise(n())
+
 residential_clean_df <- residential_clean_df %>%
-  mutate(yr_remod_mod = if_else(is.na(YR_RMDL),2018,as.numeric(YR_RMDL))) %>%
-  mutate(remodelled = as.factor(if_else(yr_remod_mod < sale_year,1,0))) %>%
-  select(-yr_remod_mod)
+  mutate(remodelled = if_else(YR_RMDL < year(SALEDATE), 0 ,1)) %>%
+  mutate(remodelled = if_else(is.na(remodelled),1,remodelled)) %>%
+  mutate(remodelled = as.factor(remodelled))
+```
+
+```{r year}
+residential_clean_df %>%
+  select(SALEDATE) %>%
+  mutate(y1 = year(SALEDATE)) %>%
+ggplot(data =., aes(y = y1)) +
+  geom_boxplot()
+# One record withSALEDATE 1900 has no price. Deleting it.
+residential_clean_df <- residential_clean_df %>%
+  filter(!year(SALEDATE) == 1900)
+
+# there are 9 records with year_remodelled is less than actual year build and 15 records with estimated year built less than actual year build. These does not make sense. Removing these records.
+
+year_rows_removal <- which(residential_clean_df$EYB < residential_clean_df$AYB)
+year_rows_removal <- union(year_rows_removal,which(residential_clean_df$YR_RMDL < residential_clean_df$AYB)) 
+residential_clean_df <- residential_clean_df[-year_rows_removal,]
+
+residential_clean_df %>%
+  select(AYB, EYB, YR_RMDL, SALEDATE, remodelled, PRICE)
 
 # calculate age variable which is as of sale year.
 residential_clean_df <- residential_clean_df %>%
+  mutate(sale_year = year(SALEDATE)) %>%
   mutate(age = pmin(if_else(sale_year - AYB <0, 999,  sale_year - AYB ),
                     if_else(sale_year - EYB <0, 999,  sale_year - EYB ), 
                     if_else(sale_year - YR_RMDL <0, 999,  sale_year - YR_RMDL ), 
-                    na.rm=TRUE))
-
+                    na.rm=TRUE)) 
+# there are 145 records which has sale date earlier than AYB, EYB and YR_RMDL. These records are all removed.
+residential_clean_df <- residential_clean_df[-which(residential_clean_df$age==999),]
 # excluding the date columns
 residential_clean_df <- residential_clean_df %>%
   select(-AYB, -EYB, -YR_RMDL, -SALEDATE)
+
+
+ggplot(data = residential_clean_df, aes(x = sale_year))+
+  geom_bar() +
+  labs(title = 'Sales by year') +
+  coord_flip()
+
+# There are very few (1 or 2) sales before 1992. Removing those.
+
+residential_clean_df <- residential_clean_df %>%
+  filter(sale_year >= 1992)
+
+# sale year should be factor. 1 year increase in sale year does not necesserily mean 1 unit increase in sale pice.  
+residential_clean_df <- residential_clean_df%>%
+  mutate(sale_year = as.factor(sale_year))
 ```
 
 ### Analyse area 
@@ -507,10 +563,8 @@ residential_clean_df %>%
   select(GBA,LANDAREA) %>%
   gather(key = 'type', value = 'area') %>%
   ggplot(data = ., aes(x = type, y = area)) +
-  geom_boxplot()
-#below are some extreme values from area perspective. However they seems valid numbers
-residential_clean_df[residential_clean_df$GBA > 40000,]
-residential_clean_df[residential_clean_df$LANDAREA > 500000,]
+  geom_boxplot() +
+  labs(title = 'Distribution of areas')
 ```
 
 Lets bucket land area and GBA into 5 groups each based on quartiles.
@@ -539,7 +593,7 @@ Draw a pairwise graph for checking any correlations.
 ```{r missing_1}
 summary(residential_clean_df)
 ```  
-There are 66 rows with missing values excluding PRICE columns. Let's drop them.
+There are 38 rows with missing values excluding PRICE columns. Let's drop them.
 ```{r missing_values}
 residential_clean_df <- residential_clean_df %>%
   drop_na(-PRICE)
@@ -552,6 +606,8 @@ residential_clean_df <- residential_clean_df %>%
 Convert all factor colmns to dummy variables.  
 
 ```{r dummy_1}
+residential_clean_df <- residential_clean_df %>%
+  select(-QUALIFIED)
 factor_columns <- residential_clean_df %>% 
   Filter(f = is.factor) %>%
   names
@@ -563,7 +619,7 @@ res_dummy_df <- data.frame(predict(dv, newdata = residential_clean_df))
 
 ```{r corr_1, fig.height=10}
 rcorr_matrix <- res_dummy_df %>%
-  select(-OBJECTID, -PRICE, -QUALIFIEDU) %>%
+  select(-OBJECTID, -PRICE) %>%
   as.matrix() %>%
   rcorr()
 corrplot(rcorr_matrix$r, type='upper', order = 'hclust',tl.cex = 0.8)
@@ -599,8 +655,7 @@ We will remove below features.
 4. structure_coding.str_single  
   
 ```{r corr_3}
-res_dummy_df <- res_dummy_df %>%
-  select(-etxwall_coding.extwall_siding, -intwall_coding.intwall_other, -KITCHENS, -structure_coding.str_single)
+res_dummy_df_uncorr <- res_dummy_df %>%  select(-etxwall_coding.extwall_siding,-intwall_coding.intwall_other, -KITCHENS,-structure_coding.str_single)
 
 ```  
 
@@ -608,26 +663,22 @@ res_dummy_df <- res_dummy_df %>%
 
 
 ```{r NZV}
-nzv_cols <- res_dummy_df %>%
-  select(-PRICE,-QUALIFIEDU) %>%
-  nearZeroVar(names = TRUE)
+nzv_cols <- res_dummy_df_uncorr %>%
+  select(-PRICE) %>%
+  nearZeroVar(names = TRUE, freqCut = 99/1)
 
-res_dummy_df <- res_dummy_df %>%
-  select(-!!nzv_cols) 
+#res_dummy_df_uncorr <- res_dummy_df_uncorr %>% select(-!!nzv_cols) 
 ```
 
 ##Prepare the dataset.  
 
 ## Test and train dataset.
 
-**SALES QUALIFICATION.**  
-
-The basic sales information is available at the Register of Deeds. However, before a proper analysis can be made between the sales for the tax year and those of similar properties that did not sell, the sales must be checked or qualified to verify that and "arm's length" transaction has taken place and the source of information is correct. The transaction must then be further checked to determine if all rights and benefits of property ownership were transferred and if any personal property was involved. This procedure is known as SALES QUALIFICATION. Sales of some residential, but primarily agricultural, industrial and commercial properties often include personal property. There are also a number of intra-company or intra-family transfers "distress" sales, etc., many of which have limiting terms and conditions which affect the sales price. For these reasons and others, further qualification of sales of this type through communication with one or more of the parties involved may be necessary to determine if the sales price should be adjusted for terms, personal property, etc., or disqualified entirely.  
 ### Removing outliers.  
 
 ```{r outliers_1}
-res_data_modelling <- res_dummy_df %>%
-  filter(QUALIFIEDU == 0, !is.na(PRICE))
+res_data_modelling <- res_dummy_df_uncorr %>%
+  filter(!is.na(PRICE))
 ```
 
 Below columns are not one hot encoded. They are continuous variables.Need to remove outliers defined as mean +/- 1.5*sd.  
@@ -651,14 +702,16 @@ res_data_modelling %>%
 res_data_modelling %>%
   select(PRICE) %>%
   ggplot(data = ., aes(x = PRICE)) +
-  geom_histogram(bins=60)
+  geom_histogram(bins=60) +
+  labs(title = 'Distribution of sale prices')
 
 res_data_modelling %>%
   filter(PRICE > quantile(PRICE,1/100),
          PRICE < quantile(PRICE,99/100)) %>%
   select(PRICE) %>%
   ggplot(data = ., aes(x = PRICE)) +
-  geom_histogram(bins=60)
+  geom_histogram(bins=60)  +
+  labs(title = 'Distribution of sale prices after removing extremen 1% on both sides')
 
 
 PRICE_outlier_rows <- which(res_data_modelling$PRICE < quantile(res_data_modelling$PRICE,1/100)|
@@ -676,11 +729,13 @@ PRICE is dependent variable and only positive value makes sense. Hence it needs 
 res_data_modelling %>%
   select(ROOMS) %>%
   ggplot(data = ., aes(y = ROOMS)) +
-  geom_boxplot()
+  geom_boxplot() +
+  labs(title = 'Distribution of ROOMS')
 res_data_modelling %>%
   select(ROOMS) %>%
   ggplot(data = ., aes(x = ROOMS)) +
-  geom_histogram(bins=15)
+  geom_histogram(bins=15)+
+  labs(title = 'Residences by number of rooms', y = 'Residence count')
 ROOMS_outlier_rows <- which(res_data_modelling$ROOMS == 0 |
         res_data_modelling$ROOMS >12 )
 ```  
@@ -691,11 +746,13 @@ Also rooms ==0 are incorrect as they have bathroom_total, bedroom and stories no
 res_data_modelling %>%
   select(BEDRM) %>%
   ggplot(data = ., aes(y = BEDRM)) +
-  geom_boxplot()
+  geom_boxplot() +
+  labs(title = 'Bedroom disributions')
 res_data_modelling %>%
   select(BEDRM) %>%
   ggplot(data = ., aes(x = BEDRM)) +
-  geom_histogram(bins=35)
+  geom_histogram(bins=35) +
+  labs(title = 'Residences by bedrooms')
 BEDROOMS_outlier_rows <- which(res_data_modelling$BEDRM == 0 |
         res_data_modelling$BEDRM >12 )
 ```  
@@ -706,11 +763,13 @@ Also BEDRM ==0 are incorrect as they have bathroom_total, bedroom and stories no
 res_data_modelling %>%
   select(STORIES) %>%
   ggplot(data = ., aes(y = STORIES)) +
-  geom_boxplot()
+  geom_boxplot() +
+  labs(title = 'Distribution of stories')
 res_data_modelling %>%
   select(STORIES) %>%
   ggplot(data = ., aes(x = STORIES)) +
-  geom_histogram(bins=50)
+  geom_histogram(bins=50) +
+  labs(title = 'Residences by stories')
 STORIES_outlier_rows <- which(res_data_modelling$STORIES > 10 )
 ```   
 
@@ -724,17 +783,19 @@ outlier_rows <- STORIES_outlier_rows %>%
   sort()
 res_data_modelling <- res_data_modelling[-outlier_rows,]
 ```
+
  
 ```{r test_train_2}
 trainIndex = createDataPartition(res_data_modelling$PRICE, p=0.8, list=FALSE)
 train_residence_df <- res_data_modelling[trainIndex, ]
 test_residence_df <-  res_data_modelling[-trainIndex, ]
 train_obj <- train_residence_df %>% select(OBJECTID)
-train_residence_df <- train_residence_df %>% select(-OBJECTID,-QUALIFIEDU)
+train_residence_df <- train_residence_df %>% select(-OBJECTID)
 test_obj <- test_residence_df %>% select(OBJECTID)
-test_residence_df <- test_residence_df %>% select(-OBJECTID, -QUALIFIEDU)
+test_residence_df <- test_residence_df %>% select(-OBJECTID)
 
 ```  
+
 
 ### scale data.  
 ```{r scale_data}
@@ -759,35 +820,18 @@ test_residence_df_scaled <- predict(scaled_data_model,
 set.seed(6969)
 simple_linear_model <- train(PRICE_LOG~.,data = train_residence_df_scaled, method = 'lm')
 summary(simple_linear_model)
+
+plot(simple_linear_model$finalModel)
+
 ```  
-Adjusted R-Square is 77.35% which is pretty good.  
+Adjusted R-Square is 76.78% which is pretty good.  
 
 ```{r lm_mod_2}
 lm_predict <- predict(simple_linear_model, test_residence_df_scaled)
 
-# measuring the model performance on original price units. 
-# model is predicting log of price. Taking exponential 
-
-postResample(pred = exp(lm_predict), obs = test_residence_df$PRICE) 
-
-mod <- cbind(pred = exp(lm_predict), obs = test_residence_df$PRICE)
-colnames(mod) <- c('pre','obs')
-mod <- data.frame(mod) %>%
-  mutate(res = pre-obs)
-ggplot(data = mod, aes(x = pre, y = res)) +
-  geom_point() +
-  labs(title = 'Residuals vs predicted values (original PRICE scale)')
-
-
-mod <- cbind(pred = lm_predict, obs = test_residence_df_scaled$PRICE_LOG)
-colnames(mod) <- c('pre','obs')
-mod <- data.frame(mod) %>%
-  mutate(res = pre-obs)
-ggplot(data = mod, aes(x = pre, y = res)) +
-  geom_point() +
-  labs(title = 'Residuals vs predicted values (LOG PRICE scale)')
+error_plot(lm_predict,test_residence_df_scaled$PRICE_LOG)
 ```  
-The model performance on test data is 62.25%.  
+The model performance on test data is 70%.  
 
 ### Linear Regression with repeated cv
 ```{r lm_rcv_1}
@@ -796,6 +840,8 @@ tc <- trainControl(method = 'repeatedcv', number = 10)
 lm2_model <- train(PRICE_LOG~., data = train_residence_df_scaled, method = 'lm',
                    trControl = tc)
 summary(lm2_model)
+lm2_predict <- predict(lm2_model, test_residence_df_scaled)
+error_plot(lm2_predict,test_residence_df_scaled$PRICE_LOG)
 ```  
 There is no difference when repeatedCross validation method is used.  
 
@@ -813,16 +859,22 @@ postResample(pred = glm_predict_train, obs = train_residence_df_scaled$PRICE_LOG
 
 glm_predict <- predict(glm_model, test_residence_df_scaled)
 postResample(pred = glm_predict, obs = test_residence_df_scaled$PRICE_LOG)
+error_plot(glm_predict,test_residence_df_scaled$PRICE_LOG)
 ```  
 
 ### Random Frest.
 
 ```{r rf_1}
 set.seed(90898)
-rf1 <- randomForest(PRICE_LOG~., data = train_residence_df_scaled, ntree=10)
+rf1 <- randomForest(PRICE_LOG~., data = train_residence_df_scaled, 
+                    ntree=10,
+                    mtry = 3,
+                    importance = TRUE)
 summary(rf1)
 pred_rf <- predict(rf1, test_residence_df_scaled)
 postResample(pred = pred_rf, obs = test_residence_df_scaled$PRICE_LOG)
+error_plot(pred_rf,test_residence_df_scaled$PRICE_LOG)
+varImpPlot(rf1, main = 'Variable importance', cex = 0.6)
 ```  
 
 ### Xtreme gradient boosting.  
@@ -837,6 +889,9 @@ summary(xg_model)
 xgb_pre <- predict(xg_model, data.matrix(test_residence_df_scaled %>%
                                          select(-PRICE_LOG)))
 postResample(pred = xgb_pre, test_residence_df_scaled$PRICE_LOG)
+
+error_plot(xgb_pre,test_residence_df_scaled$PRICE_LOG)
+
 ```
 
 ```{r model_eval}
@@ -870,6 +925,8 @@ t2 <- cbind(test_residence_df_scaled$PRICE_LOG, lasso_pre)
 colnames(t2) <- c('act','pre')
 ggplot(data = data.frame(t2), aes(x = act, y = pre)) +
   geom_point()
+
+error_plot(lasso_pre,test_residence_df_scaled$PRICE_LOG)
 ```  
 
 ```{r ridge_1}
@@ -895,8 +952,5 @@ ridge_pre <- predict(ridge_model, data.matrix(test_residence_df_scaled %>%
                                          select(-PRICE_LOG)))
 postResample(pred = ridge_pre, test_residence_df_scaled$PRICE_LOG)
 
-t3 <- cbind(test_residence_df_scaled$PRICE_LOG, ridge_pre)
-colnames(t3) <- c('act','pre')
-ggplot(data = data.frame(t3), aes(x = act, y = pre)) +
-  geom_point()
+error_plot(ridge_pre,test_residence_df_scaled$PRICE_LOG)
 ```
