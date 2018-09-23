@@ -1,1 +1,0 @@
-"0","rf_model <- train(PRICE~., data = train_residence_df, method = 'rf')"
