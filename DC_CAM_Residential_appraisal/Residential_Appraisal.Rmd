@@ -828,7 +828,7 @@ Adjusted R-Square is 76.78% which is pretty good.
 
 ```{r lm_mod_2}
 lm_predict <- predict(simple_linear_model, test_residence_df_scaled)
-
+postResample(pred = lm_predict, obs = test_residence_df_scaled$PRICE_LOG)
 error_plot(lm_predict,test_residence_df_scaled$PRICE_LOG)
 ```  
 The model performance on test data is 70%.  
@@ -841,6 +841,7 @@ lm2_model <- train(PRICE_LOG~., data = train_residence_df_scaled, method = 'lm',
                    trControl = tc)
 summary(lm2_model)
 lm2_predict <- predict(lm2_model, test_residence_df_scaled)
+postResample(pred = lm2_predict, obs = test_residence_df_scaled$PRICE_LOG)
 error_plot(lm2_predict,test_residence_df_scaled$PRICE_LOG)
 ```  
 There is no difference when repeatedCross validation method is used.  
@@ -865,13 +866,13 @@ error_plot(glm_predict,test_residence_df_scaled$PRICE_LOG)
 ### Random Frest.
 
 ```{r rf_1}
-set.seed(90898)
+set.seed(12312056)
 rf1 <- randomForest(PRICE_LOG~., data = train_residence_df_scaled, 
-                    ntree=10,
+                    ntree=15,
                     mtry = 3,
                     importance = TRUE)
 summary(rf1)
-pred_rf <- predict(rf1, test_residence_df_scaled)
+pred_rf <- predict(rf1, test_residence_df_scaled %>% select(-PRICE_LOG))
 postResample(pred = pred_rf, obs = test_residence_df_scaled$PRICE_LOG)
 error_plot(pred_rf,test_residence_df_scaled$PRICE_LOG)
 varImpPlot(rf1, main = 'Variable importance', cex = 0.6)
@@ -894,19 +895,6 @@ error_plot(xgb_pre,test_residence_df_scaled$PRICE_LOG)
 
 ```
 
-```{r model_eval}
-t <- cbind(test_residence_df_scaled$PRICE_LOG, xgb_pre)
-colnames(t) <- c('act','pre')
-ggplot(data = data.frame(t), aes(x = act, y = pre)) +
-  geom_point()
-
-
-t1 <- cbind(test_residence_df_scaled$PRICE_LOG, pred_rf)
-colnames(t1) <- c('act','pre')
-ggplot(data = data.frame(t1), aes(x = act, y = pre)) +
-  geom_point()
-```  
-
 ### Regularization regression.  
 
 LASSO, Ridge regression and Elastic regresssion.  
@@ -921,11 +909,6 @@ lasso_pre <- predict(lasso_model, data.matrix(test_residence_df_scaled %>%
                                          select(-PRICE_LOG)))
 postResample(pred = lasso_pre, test_residence_df_scaled$PRICE_LOG)
 
-t2 <- cbind(test_residence_df_scaled$PRICE_LOG, lasso_pre)
-colnames(t2) <- c('act','pre')
-ggplot(data = data.frame(t2), aes(x = act, y = pre)) +
-  geom_point()
-
 error_plot(lasso_pre,test_residence_df_scaled$PRICE_LOG)
 ```  
 
@@ -938,10 +921,6 @@ ridge_pre <- predict(ridge_model, data.matrix(test_residence_df_scaled %>%
                                          select(-PRICE_LOG)))
 postResample(pred = ridge_pre, test_residence_df_scaled$PRICE_LOG)
 
-t3 <- cbind(test_residence_df_scaled$PRICE_LOG, ridge_pre)
-colnames(t3) <- c('act','pre')
-ggplot(data = data.frame(t3), aes(x = act, y = pre)) +
-  geom_point()
 ```  
 ```{r elastic_1}
 ridge_model <- cv.glmnet(data.matrix(train_residence_df_scaled %>%
@@ -953,4 +932,15 @@ ridge_pre <- predict(ridge_model, data.matrix(test_residence_df_scaled %>%
 postResample(pred = ridge_pre, test_residence_df_scaled$PRICE_LOG)
 
 error_plot(ridge_pre,test_residence_df_scaled$PRICE_LOG)
+```   
+
+## Final Model.  
+BAsed on R2 and RMSE on test data and error plot, Lasso seems the best model.Random Forest has slightly lower R2 and RMSE on test data. However close observation of error plot shows lasso over estimates at lower price range while under estimates at higher price range. On the other hand Random Forest is opposite error plot. i.e. RF under estimates at lower price range and over estimates at higher price range. So the final ensamble prediction model will be 40% random forest and 60% lasso.  
+
+```{r final_model}
+pred_prices <- test_residence_df%>%
+  select(PRICE) %>%
+  cbind(pred = exp(0.6*lasso_pre + 0.4*pred_rf)) %>%
+  rename('Predicted_price' = '1') 
+
 ```
