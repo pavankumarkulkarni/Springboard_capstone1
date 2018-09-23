@@ -670,8 +670,6 @@ nzv_cols <- res_dummy_df_uncorr %>%
 #res_dummy_df_uncorr <- res_dummy_df_uncorr %>% select(-!!nzv_cols) 
 ```
 
-##Prepare the dataset.  
-
 ## Test and train dataset.
 
 ### Removing outliers.  
@@ -943,4 +941,7 @@ pred_prices <- test_residence_df%>%
   cbind(pred = exp(0.6*lasso_pre + 0.4*pred_rf)) %>%
   rename('Predicted_price' = '1') 
 
+postResample(pred = 0.6*lasso_pre + 0.4*pred_rf, obs = test_residence_df_scaled$PRICE_LOG)
+
+error_plot(0.6*lasso_pre + 0.4*pred_rf,test_residence_df_scaled$PRICE_LOG)
 ```
