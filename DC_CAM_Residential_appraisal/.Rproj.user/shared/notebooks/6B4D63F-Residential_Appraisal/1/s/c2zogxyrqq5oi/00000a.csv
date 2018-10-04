@@ -1,2 +1,0 @@
-"0","exclusion_lst <- c(4,6,14,22)"
-"0","draw_boxplot_graph(EXTWALL, 'EXTWALL_D','Distribution of Price by external wall',exclusion_lst)"
