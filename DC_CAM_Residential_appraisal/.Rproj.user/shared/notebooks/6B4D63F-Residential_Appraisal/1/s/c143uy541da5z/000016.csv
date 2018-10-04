@@ -1,2 +1,0 @@
-"0","residential_clean_df %>%"
-"0","  filter(is.na(HEAT_D))"
